@@ -1,2 +1,2 @@
 #!/bin/bash
-python3.4 find_cafe.py
+python3 find_cafe.py
