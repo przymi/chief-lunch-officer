@@ -6,7 +6,7 @@
 
 from chief_lunch_officer import ChiefLunchOfficer, WeatherOpinion, FoodTaste
 from constants import TEMPERATURE, PRECIPITATION_CHANCE, PRECIPITATION_AMOUNT, WIND
-from constants import FACTORY_KEILARANTA
+from constants import FACTORY_KEILARANTA, BLANCCO_KEILARANTA
 from preferences import FOOD_PREFERENCES
 from cafes import CAFES
 from decorators import get_ignore_errors_decorator
@@ -30,6 +30,7 @@ EmptyMenuOnError = get_ignore_errors_decorator(default_value='No menu. Data feed
 ##SODEXO_ACQUA_URL = 'http://www.sodexo.fi/carte/load/html/30/%s/day'
 ##SODEXO_EXPLORER_URL = 'http://www.sodexo.fi/carte/load/html/31/%s/day'
 FACTORY_KEILARANTA_URL = 'https://ravintolafactory.com/lounasravintolat/ravintolat/espoo-keilaranta/'
+BLANCCO_KEILARANTA_URL = 'https://www.ravintolablancco.com/lounas-ravintolat/keilaranta/'
 
 YLE_WEATHER_FORECAST_URL = 'http://yle.fi/saa/resources/ajax/saa-api/hourly-forecast.action?id=642554'
 
@@ -106,8 +107,6 @@ def get_factory_salmisaari_menu(date):
 
 @EmptyMenuOnError
 def get_factory_keilaranta_menu(date):
-    date_label = date.strftime('%d.%m.%Y')
-    
     response = urllib.request.urlopen(FACTORY_KEILARANTA_URL)
     charset = response.headers.get_content_charset() if response.headers.get_content_charset() is not None else 'utf-8'
     html=response.read().decode(charset)
@@ -123,6 +122,31 @@ def get_factory_keilaranta_menu(date):
                 datestring=header.string[location + 4:]
                 if datetime.strptime(datestring, '%d.%m.%Y').date() == date:
                     found.append(header.find_next_sibling('p').get_text())
+    return found[0]
+
+def get_blancco_keilaranta_menu(date):
+    response = urllib.request.urlopen(BLANCCO_KEILARANTA_URL)
+    charset = response.headers.get_content_charset() if response.headers.get_content_charset() is not None else 'utf-8'
+    html=response.read().decode(charset)
+    
+    soup = BeautifulSoup(html, 'html.parser')
+    found = []
+    for header in soup.find_all('h3'):
+        if header.string:
+            if 'style' in header.attrs:
+                if header.attrs['style'] == 'text-align: center;':
+                    if header.span:
+                        if not header.span.strong:
+                            if header.span['style'] == "color: #ff0000;":
+                                if not '@' in header.string:
+                                    datedate=datetime.strptime(header.string[3:], '%d.%m').date().replace(year=datetime.now().year)
+                                    if datedate == date:
+                                        entryline = header.find_next_sibling('p')
+                                        entry = entryline.get_text() + '\n'
+                                        for x in range(4):
+                                            entryline = entryline.find_next_sibling('p')
+                                            entry = entry + entryline.get_text() + '\n'
+                                        found.append(entry)                                            
     return found[0]
 
 
@@ -194,10 +218,12 @@ print('Today %s\n' % today.strftime('%d.%m.%Y'))
 ##factory_salmisaari_menu = get_factory_salmisaari_menu(today)
 ##print('\nFactory Salmisaari:\n\n%s' % make_readable(factory_salmisaari_menu, insert_new_lines=False))
 factory_keilaranta_menu = get_factory_keilaranta_menu(today)
-print('Factory Keilaranta:\n%s' % make_readable(factory_keilaranta_menu, insert_new_lines=False))
+print('Factory Keilaranta:\n%s\n' % make_readable(factory_keilaranta_menu, insert_new_lines=False))
+blancco_keilaranta_menu = get_blancco_keilaranta_menu(today)
+print('Blancco Keilaranta:\n%s\n' % make_readable(blancco_keilaranta_menu, insert_new_lines=False))
 
 weather = get_todays_weather()
-print('\nWeather:\n Temperature %s C\n Chance of precipitation %s percent\n Precipitation amount %s mm\n Wind %s m/s' % (weather[TEMPERATURE], weather[PRECIPITATION_CHANCE], weather[PRECIPITATION_AMOUNT], weather[WIND]))
+print('Weather:\n Temperature %s C\n Chance of precipitation %s percent\n Precipitation amount %s mm\n Wind %s m/s' % (weather[TEMPERATURE], weather[PRECIPITATION_CHANCE], weather[PRECIPITATION_AMOUNT], weather[WIND]))
 
 lunch_history = get_current_week_history(today)
 current_week_cafes = ordered_cafes(lunch_history)
@@ -212,6 +238,7 @@ cafes = deepcopy(CAFES)
 ##cafes[PIHKA]['menu'] = pihka_menu
 ##cafes[FACTORY_SALMISAARI]['menu'] = factory_salmisaari_menu
 cafes[FACTORY_KEILARANTA]['menu'] = factory_keilaranta_menu
+cafes[BLANCCO_KEILARANTA]['menu'] = blancco_keilaranta_menu
 
 food_taste = FoodTaste().preferences(FOOD_PREFERENCES)
 weather_opinion = WeatherOpinion().weather(weather)
