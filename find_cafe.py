@@ -6,10 +6,12 @@
 
 from chief_lunch_officer import ChiefLunchOfficer, WeatherOpinion, FoodTaste
 from constants import TEMPERATURE, PRECIPITATION_CHANCE, PRECIPITATION_AMOUNT, WIND
-from constants import NEPALESE, HIMA_SALI, DYLAN_MILK, FACTORY_SALMISAARI, PIHKA, ANTELL, SODEXO_ACQUA, SODEXO_EXPLORER
+from constants import FACTORY_KEILARANTA
 from preferences import FOOD_PREFERENCES
 from cafes import CAFES
 from decorators import get_ignore_errors_decorator
+from bs4 import BeautifulSoup
+
 
 from pathlib import Path
 from datetime import date, datetime, timedelta
@@ -20,14 +22,17 @@ import re
 
 EmptyMenuOnError = get_ignore_errors_decorator(default_value='No menu. Data feed format for the cafe changed?')
 
-HIMA_SALI_URL = 'http://www.himasali.com/p/lounaslista.html'
-DYLAN_MILK_URL = 'http://dylan.fi/milk/'
-PIHKA_URL = 'http://ruoholahti.pihka.fi/en/'
-FACTORY_SALMISAARI_URL = 'http://www.ravintolafactory.com/ravintolat/helsinki-salmisaari/'
-ANTELL_URL = 'http://www.antell.fi/lounaslistat/lounaslista.html?owner=146'
+##HIMA_SALI_URL = 'http://www.himasali.com/p/lounaslista.html'
+##DYLAN_MILK_URL = 'http://dylan.fi/milk/'
+##PIHKA_URL = 'http://ruoholahti.pihka.fi/en/'
+##FACTORY_SALMISAARI_URL = 'http://www.ravintolafactory.com/ravintolat/helsinki-salmisaari/'
+##ANTELL_URL = 'http://www.antell.fi/lounaslistat/lounaslista.html?owner=146'
+##SODEXO_ACQUA_URL = 'http://www.sodexo.fi/carte/load/html/30/%s/day'
+##SODEXO_EXPLORER_URL = 'http://www.sodexo.fi/carte/load/html/31/%s/day'
+FACTORY_KEILARANTA_URL = 'https://ravintolafactory.com/lounasravintolat/ravintolat/espoo-keilaranta/'
+
 YLE_WEATHER_FORECAST_URL = 'http://yle.fi/saa/resources/ajax/saa-api/hourly-forecast.action?id=642554'
-SODEXO_ACQUA_URL = 'http://www.sodexo.fi/carte/load/html/30/%s/day'
-SODEXO_EXPLORER_URL = 'http://www.sodexo.fi/carte/load/html/31/%s/day'
+
 
 def make_readable(content_with_html_tags, insert_new_lines=True, collapse_whitespace=False):
     content_with_html_tags = re.sub('<br.*?>', '\n' if insert_new_lines else '', content_with_html_tags)
@@ -99,6 +104,28 @@ def get_factory_salmisaari_menu(date):
     found = get_and_find_all(FACTORY_SALMISAARI_URL, r'%s</h3>(.*?)</p>' % (date_label))
     return found[0]
 
+@EmptyMenuOnError
+def get_factory_keilaranta_menu(date):
+    date_label = date.strftime('%d.%m.%Y')
+    
+    response = urllib.request.urlopen(FACTORY_KEILARANTA_URL)
+    charset = response.headers.get_content_charset() if response.headers.get_content_charset() is not None else 'utf-8'
+    html=response.read().decode(charset)
+##Just for testing
+    html = open('factorytest.html').read()
+    
+    soup = BeautifulSoup(html, 'html.parser')
+    found = []
+    for header in soup.find_all('h3'):
+        if header.string:
+            location = header.string.find("day")
+            if location >= 0:
+                datestring=header.string[location + 4:]
+                if datetime.strptime(datestring, '%d.%m.%Y').date() == date:
+                    found.append(header.find_next_sibling('p').get_text())
+    return found[0]
+
+
 def get_todays_weather():
     weather_response = get(YLE_WEATHER_FORECAST_URL)
     forecast = json.loads(weather_response)['weatherInfos'][0]
@@ -148,39 +175,43 @@ def update_history(history, today, todays_cafe):
     store_history(history)
 
 today = date.today()
-#today = today + timedelta(days=2)
+##Only for testing during weekend, set it to day before yesterday
+today = today - timedelta(days=2)
 print('Today %s\n' % today.strftime('%d.%m.%Y'))
 
-sodexo_acqua_menu = get_sodexo_acqua_menu(today)
-print('\nSodexo Acqua:\n\n%s' % make_readable(sodexo_acqua_menu, collapse_whitespace=True))
-sodexo_explorer_menu = get_sodexo_explorer_menu(today)
-print('\nSodexo Explorer:\n\n%s' % make_readable(sodexo_explorer_menu, collapse_whitespace=True))
-antell_menu = get_antell_menu(today)
-print('\nAntell:\n\n%s' % make_readable(antell_menu, collapse_whitespace=True))
-hima_sali_menu = get_hima_sali_menu(today)
-print('\nHima & Sali:\n\n%s' % make_readable(hima_sali_menu, insert_new_lines=False))
-dylan_milk_menu = get_dylan_milk_menu(today)
-print('\nDylan Milk:\n\n%s' % make_readable(dylan_milk_menu))
-pihka_menu = get_pihka_menu(today)
-print('\nPihka:\n\n%s' % make_readable(pihka_menu, collapse_whitespace=True))
-factory_salmisaari_menu = get_factory_salmisaari_menu(today)
-print('\nFactory Salmisaari:\n\n%s' % make_readable(factory_salmisaari_menu, insert_new_lines=False))
+##sodexo_acqua_menu = get_sodexo_acqua_menu(today)
+##print('\nSodexo Acqua:\n\n%s' % make_readable(sodexo_acqua_menu, collapse_whitespace=True))
+##sodexo_explorer_menu = get_sodexo_explorer_menu(today)
+##print('\nSodexo Explorer:\n\n%s' % make_readable(sodexo_explorer_menu, collapse_whitespace=True))
+##antell_menu = get_antell_menu(today)
+##print('\nAntell:\n\n%s' % make_readable(antell_menu, collapse_whitespace=True))
+##hima_sali_menu = get_hima_sali_menu(today)
+##print('\nHima & Sali:\n\n%s' % make_readable(hima_sali_menu, insert_new_lines=False))
+##dylan_milk_menu = get_dylan_milk_menu(today)
+##print('\nDylan Milk:\n\n%s' % make_readable(dylan_milk_menu))
+##pihka_menu = get_pihka_menu(today)
+##print('\nPihka:\n\n%s' % make_readable(pihka_menu, collapse_whitespace=True))
+##factory_salmisaari_menu = get_factory_salmisaari_menu(today)
+##print('\nFactory Salmisaari:\n\n%s' % make_readable(factory_salmisaari_menu, insert_new_lines=False))
+factory_keilaranta_menu = get_factory_keilaranta_menu(today)
+print('Factory Keilaranta:\n%s' % make_readable(factory_keilaranta_menu, insert_new_lines=False))
 
 weather = get_todays_weather()
-print('\nWeather:\n\n temperature %s C\n chance of precipitation %s percent\n precipitation amount %s mm\n wind %s m/s' % (weather[TEMPERATURE], weather[PRECIPITATION_CHANCE], weather[PRECIPITATION_AMOUNT], weather[WIND]))
+print('\nWeather:\n Temperature %s C\n Chance of precipitation %s percent\n Precipitation amount %s mm\n Wind %s m/s' % (weather[TEMPERATURE], weather[PRECIPITATION_CHANCE], weather[PRECIPITATION_AMOUNT], weather[WIND]))
 
 lunch_history = get_current_week_history(today)
 current_week_cafes = ordered_cafes(lunch_history)
-print('\nLunch history for current week:\n\n %s' % ', '.join(current_week_cafes))
+print('\nLunch history for current week:\n %s' % ', '.join(current_week_cafes))
 
 cafes = deepcopy(CAFES)
-cafes[SODEXO_EXPLORER]['menu'] = sodexo_explorer_menu
-cafes[SODEXO_ACQUA]['menu'] = sodexo_acqua_menu
-cafes[ANTELL]['menu'] = antell_menu
-cafes[HIMA_SALI]['menu'] = hima_sali_menu
-cafes[DYLAN_MILK]['menu'] = dylan_milk_menu
-cafes[PIHKA]['menu'] = pihka_menu
-cafes[FACTORY_SALMISAARI]['menu'] = factory_salmisaari_menu
+##cafes[SODEXO_EXPLORER]['menu'] = sodexo_explorer_menu
+##cafes[SODEXO_ACQUA]['menu'] = sodexo_acqua_menu
+##cafes[ANTELL]['menu'] = antell_menu
+##cafes[HIMA_SALI]['menu'] = hima_sali_menu
+##cafes[DYLAN_MILK]['menu'] = dylan_milk_menu
+##cafes[PIHKA]['menu'] = pihka_menu
+##cafes[FACTORY_SALMISAARI]['menu'] = factory_salmisaari_menu
+cafes[FACTORY_KEILARANTA]['menu'] = factory_keilaranta_menu
 
 food_taste = FoodTaste().preferences(FOOD_PREFERENCES)
 weather_opinion = WeatherOpinion().weather(weather)
@@ -190,6 +221,6 @@ todays_cafes = clo.decide()
 todays_cafe = todays_cafes[0]
 todays_cafe_address = CAFES[todays_cafe]['address']
 update_history(lunch_history, today, todays_cafe)
-print('\nRecommendation:\n\n %s, %s' % (todays_cafe, todays_cafe_address))
+print('\nRecommendation:\n %s, %s' % (todays_cafe, todays_cafe_address))
 formatted_cafes = ', '.join(todays_cafes[0:5]) + '\n' + ', '.join(todays_cafes[5:-1])
-print('\nAll lunch in preferred order:\n\n %s' % (formatted_cafes))
+print('\nAll lunch in preferred order:\n %s' % (formatted_cafes))
