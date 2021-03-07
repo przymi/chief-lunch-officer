@@ -6,7 +6,7 @@
 
 from chief_lunch_officer import ChiefLunchOfficer, WeatherOpinion, FoodTaste
 from constants import TEMPERATURE, PRECIPITATION_CHANCE, PRECIPITATION_AMOUNT, WIND
-from constants import FACTORY_KEILARANTA, BLANCCO_KEILARANTA
+from constants import FACTORY_KEILARANTA, BLANCCO_KEILARANTA, MAUKAS
 from preferences import FOOD_PREFERENCES
 from cafes import CAFES
 from decorators import get_ignore_errors_decorator
@@ -31,6 +31,8 @@ EmptyMenuOnError = get_ignore_errors_decorator(default_value='No menu. Data feed
 ##SODEXO_EXPLORER_URL = 'http://www.sodexo.fi/carte/load/html/31/%s/day'
 FACTORY_KEILARANTA_URL = 'https://ravintolafactory.com/lounasravintolat/ravintolat/espoo-keilaranta/'
 BLANCCO_KEILARANTA_URL = 'https://www.ravintolablancco.com/lounas-ravintolat/keilaranta/'
+##Only for testing. Today's menu is 'ci=0'
+MAUKAS_URL = 'https://www.mau-kas.fi/ravintola.html?listtype=lunch&ci=-5'
 
 YLE_WEATHER_FORECAST_URL = 'http://yle.fi/saa/resources/ajax/saa-api/hourly-forecast.action?id=642554'
 
@@ -149,6 +151,21 @@ def get_blancco_keilaranta_menu(date):
                                         found.append(entry)                                            
     return found[0]
 
+def get_maukas_menu(date):
+    response = urllib.request.urlopen(MAUKAS_URL)
+    charset = response.headers.get_content_charset() if response.headers.get_content_charset() is not None else 'utf-8'
+    html=response.read().decode(charset)
+    
+    soup = BeautifulSoup(html, 'html.parser')
+    found = ''
+    for header in soup.find_all('div', attrs={'class': 'restaurant_menuitemname'}):
+        entry = header.text.replace('\n', '').replace('\r', '')
+        found = found + entry +'\n'
+
+    return found
+
+
+
 
 def get_todays_weather():
     weather_response = get(YLE_WEATHER_FORECAST_URL)
@@ -220,7 +237,9 @@ print('Today %s\n' % today.strftime('%d.%m.%Y'))
 factory_keilaranta_menu = get_factory_keilaranta_menu(today)
 print('Factory Keilaranta:\n%s\n' % make_readable(factory_keilaranta_menu, insert_new_lines=False))
 blancco_keilaranta_menu = get_blancco_keilaranta_menu(today)
-print('Blancco Keilaranta:\n%s\n' % make_readable(blancco_keilaranta_menu, insert_new_lines=False))
+print('Blancco Keilaranta:\n%s' % make_readable(blancco_keilaranta_menu, insert_new_lines=False))
+maukas_menu = get_maukas_menu(today)
+print('MAU-KAS:\n%s\n' % make_readable(maukas_menu, insert_new_lines=False))
 
 weather = get_todays_weather()
 print('Weather:\n Temperature %s C\n Chance of precipitation %s percent\n Precipitation amount %s mm\n Wind %s m/s' % (weather[TEMPERATURE], weather[PRECIPITATION_CHANCE], weather[PRECIPITATION_AMOUNT], weather[WIND]))
@@ -239,6 +258,7 @@ cafes = deepcopy(CAFES)
 ##cafes[FACTORY_SALMISAARI]['menu'] = factory_salmisaari_menu
 cafes[FACTORY_KEILARANTA]['menu'] = factory_keilaranta_menu
 cafes[BLANCCO_KEILARANTA]['menu'] = blancco_keilaranta_menu
+cafes[MAUKAS]['menu'] = maukas_menu
 
 food_taste = FoodTaste().preferences(FOOD_PREFERENCES)
 weather_opinion = WeatherOpinion().weather(weather)
