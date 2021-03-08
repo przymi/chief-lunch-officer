@@ -32,7 +32,8 @@ EmptyMenuOnError = get_ignore_errors_decorator(default_value='No menu. Data feed
 FACTORY_KEILARANTA_URL = 'https://ravintolafactory.com/lounasravintolat/ravintolat/espoo-keilaranta/'
 BLANCCO_KEILARANTA_URL = 'https://www.ravintolablancco.com/lounas-ravintolat/keilaranta/'
 ##Only for testing. Today's menu is 'ci=0'
-MAUKAS_URL = 'https://www.mau-kas.fi/ravintola.html?listtype=lunch&ci=-5'
+##MAUKAS_URL = 'https://www.mau-kas.fi/ravintola.html?listtype=lunch&ci=-5'
+MAUKAS_URL = 'https://www.mau-kas.fi/ravintola.html?listtype=lunch&ci=0'
 
 YLE_WEATHER_FORECAST_URL = 'http://yle.fi/saa/resources/ajax/saa-api/hourly-forecast.action?id=642554'
 
@@ -113,7 +114,7 @@ def get_factory_keilaranta_menu(date):
     charset = response.headers.get_content_charset() if response.headers.get_content_charset() is not None else 'utf-8'
     html=response.read().decode(charset)
 ##Just for testing
-    html = open('factorytest.html').read()
+#    html = open('factorytest.html').read()
     
     soup = BeautifulSoup(html, 'html.parser')
     found = []
@@ -217,7 +218,7 @@ def update_history(history, today, todays_cafe):
 
 today = date.today()
 ##Only for testing during weekend, set it to day before yesterday
-today = today - timedelta(days=2)
+#today = today - timedelta(days=2)
 print('Today %s\n' % today.strftime('%d.%m.%Y'))
 
 ##sodexo_acqua_menu = get_sodexo_acqua_menu(today)
